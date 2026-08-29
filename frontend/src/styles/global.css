@@ -1,0 +1,32 @@
+body { font-family: sans-serif; background: #222; color: #fff; padding: 2rem; }
+        #chat-box { background: #333; height: 300px; padding: 1rem; overflow-y: auto; margin-bottom: 1rem; }
+        .mensaje { margin: 10px 0; padding: 10px; border-radius: 8px; max-width: 80%; }
+        .yo { background-color: #4b4c4a; align-self: flex-end; }
+        .ia { background-color: #232121; align-self: flex-start; }
+        .carga { background: transparent; align-self: flex-start; }
+        .mensajeia{white-space: pre-wrap;}
+        .spinner {
+            width: 30px;
+            height: 30px;
+            border: 4px solid #f3f3f3;
+            border-top: 4px solid #3498db;
+            border-radius: 50%;
+            animation: girar 1s linear infinite;
+        }
+
+        @keyframes girar {
+            0% { transform: rotate(0deg); }
+            100% { transform: rotate(360deg); }
+        }
+        .perfil-box{
+            display: flex;
+            align-items: top;
+            justify-content: center;
+        }
+        .perfil{
+            background-color:red;
+            text-align:center;
+            font-size: 1.5rem;
+            height: 500px;
+            width: 400px;
+        }

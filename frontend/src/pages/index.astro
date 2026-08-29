@@ -1,0 +1,125 @@
+---
+import { Font } from "astro:assets";
+---
+
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <title>Every CPT</title>
+    <style is:global>
+        /* Tu CSS intocable */
+        body { font-family: sans-serif; background: #222; color: #fff; padding: 2rem; }
+        #chat-box { background: #333; height: 300px; padding: 1rem; overflow-y: auto; margin-bottom: 1rem; }
+        .mensaje { margin: 10px 0; padding: 10px; border-radius: 8px; max-width: 80%; }
+        .yo { background-color: #4b4c4a; align-self: flex-end; }
+        .ia { background-color: #232121; align-self: flex-start; }
+        .carga { background: transparent; align-self: flex-start; }
+        .mensajeia{white-space: pre-wrap;}
+        .spinner {
+            width: 30px;
+            height: 30px;
+            border: 4px solid #f3f3f3;
+            border-top: 4px solid #3498db;
+            border-radius: 50%;
+            animation: girar 1s linear infinite;
+        }
+
+        @keyframes girar {
+            0% { transform: rotate(0deg); }
+            100% { transform: rotate(360deg); }
+        }
+        .perfil-box{
+            display: flex;
+            align-items: top;
+            justify-content: center;
+        }
+        .perfil{
+            background-color:red;
+            text-align:center;
+            font-size: 1.5rem;
+            height: 500px;
+            width: 400px;
+        }
+    </style>
+</head>
+<body>
+        <div class="loguear"></div>
+        <Font cssVariable="--font-hanken-grotesk"/><h1>EveryCPT</h1>
+
+    
+    <div id="chat-box"></div>
+    
+    <input type="text" id="prompt-usuario" placeholder="Pregúntame algo...">
+    <button onclick="enviarMensaje()">Enviar</button>
+
+    <script is:inline>
+        async function mostrarLoginRegister(){
+
+        }
+        async function enviarMensaje() {
+            const input = document.getElementById('prompt-usuario');
+            const texto = input.value;
+            const chatBox = document.getElementById('chat-box');
+
+            chatBox.innerHTML += `<div class="mensaje yo">${texto}</div>`;
+            input.value = '';
+
+            const idCarga = 'cargando-' + Date.now();
+            chatBox.innerHTML += `<div id="${idCarga}" class="mensaje carga"><div class="spinner"></div></div>`;
+            chatBox.scrollTop = chatBox.scrollHeight;
+
+            try {
+                // EL ÚNICO CAMBIO: Ahora le damos la dirección completa de Flask (puerto 5000)
+                const respuestaServidor = await fetch('http://localhost:5000/preguntar', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ prompt: texto })
+                });
+
+                const datos = await respuestaServidor.json();
+
+                const elementoCarga = document.getElementById(idCarga);
+                if (elementoCarga) elementoCarga.remove();
+
+                chatBox.innerHTML += `<div class="mensajeia">${datos.respuesta}</div>`;
+                
+            } catch (error) {
+                const elementoCarga = document.getElementById(idCarga);
+                if (elementoCarga) elementoCarga.remove();
+                chatBox.innerHTML += `<div class="mensaje error">Error: Enciende el modelo</div>`;
+            }
+            
+            chatBox.scrollTop = chatBox.scrollHeight;
+        }
+        async function systemPrompt() {
+            const input = document.getElementById('systemPrompt');
+            const texto = input.value;
+            const chatBox = document.getElementById('perfil');
+
+            chatBox.innerHTML += `<div>${texto}</div>`;
+            input.value = '';
+            try {
+                const respuestaServidor = await fetch('http://localhost:5000/preguntar', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ prompt: texto })
+                });
+
+                const datos = await respuestaServidor.json();
+
+                const elementoCarga = document.getElementById(idCarga);
+                if (elementoCarga) elementoCarga.remove();
+
+                chatBox.innerHTML += `<div class="mensaje-ia">${datos.respuesta}</div>`;
+        }
+    </script>
+    <br><br>
+    <div class="perfil-box">
+    <div class="perfil" id="perfil"><h1>Tu perfil</h1>
+        <input type="text" name="systemPrompt" id="systemPrompt placeholder="cuéntame de ti...">
+        <button onclick="enviarMensaje()">Enviar</button>
+        </div>
+    </div>
+</body>
+</html>
