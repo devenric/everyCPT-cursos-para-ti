@@ -96,9 +96,6 @@ import { Font } from "astro:assets";
             const input = document.getElementById('systemPrompt');
             const texto = input.value;
             const chatBox = document.getElementById('perfil');
-
-            chatBox.innerHTML += `<div>${texto}</div>`;
-            input.value = '';
             try {
                 const respuestaServidor = await fetch('http://localhost:5000/preguntar', {
                     method: 'POST',
