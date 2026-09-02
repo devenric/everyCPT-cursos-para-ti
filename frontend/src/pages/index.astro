@@ -54,6 +54,7 @@ import { Font } from "astro:assets";
     <button onclick="enviarMensaje()">Enviar</button>
 
     <script is:inline>
+    let texto = "";
         async function mostrarLoginRegister(){
 
         }
@@ -93,31 +94,22 @@ import { Font } from "astro:assets";
             chatBox.scrollTop = chatBox.scrollHeight;
         }
         async function systemPrompt() {
-            const input = document.getElementById('systemPrompt');
-            const texto = input.value;
-            const chatBox = document.getElementById('perfil');
-            try {
-                const respuestaServidor = await fetch('http://localhost:5000/preguntar', {
+            const respuestaServidor = await fetch('http://localhost:5000/systemPrompt', {
                     method: 'POST',
                     headers: { 'Content-Type': 'application/json' },
                     body: JSON.stringify({ prompt: texto })
                 });
-
-                const datos = await respuestaServidor.json();
-
-                const elementoCarga = document.getElementById(idCarga);
-                if (elementoCarga) elementoCarga.remove();
-
-                chatBox.innerHTML += `<div class="mensaje-ia">${datos.respuesta}</div>`;
-        }
-        catch (e){}
+            const input = document.getElementById('systemPrompt');
+            const texto = input.value;
+            const chatBox = document.getElementById('perfil');
+            chatBox.innerHTML = "<p>Perfil guardado en la memoria.</p>";
         }
     </script>
     <br><br>
     <div class="perfil-box">
     <div class="perfil" id="perfil"><h1>Tu perfil</h1>
         <input type="text" name="systemPrompt" id="systemPrompt placeholder="cuéntame de ti...">
-        <button onclick="enviarMensaje()">Enviar</button>
+        <button onclick="systemPrompt()">Enviar</button>
         </div>
     </div>
 </body>

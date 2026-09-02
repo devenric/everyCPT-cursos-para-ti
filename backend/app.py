@@ -10,22 +10,39 @@ conexion = DB('./Every.db')
 
 # ? FLASK
 
-
-@app.route('/biografía usuario', methods=['POST'])
+perfil = ""
+@app.route('/systemPrompt', methods=['POST'])
 def biografiaUsuario():
+    global perfil
     if request.method == 'POST':
-        return request.form.get('systemPrompt')
+        datos = request.get_json()
+        texto =  datos.get('systemPrompt')
+        return jsonify({"respuesta": texto})
     # Esto se envía a chat2, para aplicar la explicación a lo que tiene el usuario ahí.
-
 @app.route('/preguntar', methods=['POST']) #mete todo lo de después en una especie de carpeta. Cada vez que se accede a /preguntar, se ejecuta todo lo de dentro. La palabra return significa que llega el final de la ruta.
 def atender_pregunta():
+    def guardar_perfil():
+        global perfil
+        # Este json SOLO contiene la información enviada desde el cajón rosa
+        datos = request.get_json()
+        perfil = datos.get('systemPrompt')
+        return jsonify({"estado": "Descripción guardada en memoria"})
+    global perfil
+    
+    # Este json SOLO contiene la duda enviada desde el input inferior
+    datos = request.get_json()
+    queryUsuario = datos.get('prompt')
+    
+    # Arrancas tu IA
     chat1 = Chat('phi3:mini')
-    datosRecibidos = request.json
-    queryUsuario = datosRecibidos['prompt']
-    # Como tu clase ya hace el request.json y el jsonify...
     respuestaChat1 = chat1.procesarPrompt(queryUsuario)
+    
     chat2 = Chat('phi3:mini')
-    chat2.set_system_prompt(biografiaUsuario())
+    
+    # Si hay algo guardado en la memoria global, se lo inyectas como system prompt
+    if perfil != "":
+        chat2.set_system_prompt(perfil)
+        
     respuestaChat2 = chat2.procesarPrompt(respuestaChat1)
     jsonificado = jsonify({'respuesta': respuestaChat2})
     return jsonificado
