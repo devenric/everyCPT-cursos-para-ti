@@ -16,8 +16,9 @@ def biografiaUsuario():
     global perfil
     if request.method == 'POST':
         datos = request.get_json()
-        texto =  datos.get('systemPrompt')
-        return jsonify({"respuesta": texto})
+        perfil =  datos.get('systemPrompt')
+        debug = datos.get('systemPrompt')
+        return jsonify({"respuesta": perfil})
     # Esto se envía a chat2, para aplicar la explicación a lo que tiene el usuario ahí.
 @app.route('/preguntar', methods=['POST']) #mete todo lo de después en una especie de carpeta. Cada vez que se accede a /preguntar, se ejecuta todo lo de dentro. La palabra return significa que llega el final de la ruta.
 def atender_pregunta():
@@ -33,18 +34,31 @@ def atender_pregunta():
     datos = request.get_json()
     queryUsuario = datos.get('prompt')
     
-    # Arrancas tu IA
-    chat1 = Chat('phi3:mini')
+    print(f"--- DEBUG SYSTEM PROMPT ---")
+    print(f"Perfil actual en memoria: '{perfil}'")
+    print(f"---------------------------")
+ # 1. El primer agente extrae la información objetiva
+    chat1 = Chat('qwen2.5:3b')
     respuestaChat1 = chat1.procesarPrompt(queryUsuario)
     
-    chat2 = Chat('phi3:mini')
+    # 2. Preparamos el agente refinador
+    chat2 = Chat('qwen2.5:3b')
     
-    # Si hay algo guardado en la memoria global, se lo inyectas como system prompt
     if perfil != "":
         chat2.set_system_prompt(perfil)
         
-    respuestaChat2 = chat2.procesarPrompt(respuestaChat1)
-    jsonificado = jsonify({'respuesta': respuestaChat2})
+        # 3. La pieza clave: Orden explícita de adaptación
+        orden_traduccion = (
+            f"Actúa estrictamente bajo tu perfil configurado. "
+            f"Tu tarea es reescribir la siguiente información adaptándola a ese tono y estilo exacto, "
+            f"teniendo en cuenta este contexto adicional proporcionado por el usuario: '{perfil}'. "
+            f"No inventes datos nuevos, solo transforma esta explicación: {respuestaChat1}"
+            )        
+        respuestaFinal = chat2.procesarPrompt(orden_traduccion) if hasattr(chat2, 'processarPrompt') else chat2.procesarPrompt(orden_traduccion)
+        # Si no hay perfil en memoria, evitamos procesar dos veces
+    else:
+        respuestaFinal = respuestaChat1
+    jsonificado = jsonify({'respuesta': respuestaFinal})
     return jsonificado
 # TODO Recordar investigar sobre la extension del modelo (el modelo se puede extender todo lo que quiera), el aviso de que el modelo por cuestiones de privacidad y rendimiento se ejecute en pc y que el historial se sincronice con el móvil
 # ! Cuando acabe el backend y tenfa el prototipo, hacer: 

@@ -93,14 +93,16 @@ import { Font } from "astro:assets";
             
             chatBox.scrollTop = chatBox.scrollHeight;
         }
+        
         async function systemPrompt() {
+        const input = document.getElementById('systemPrompt');
+        const texto = input.value;
             const respuestaServidor = await fetch('http://localhost:5000/systemPrompt', {
                     method: 'POST',
                     headers: { 'Content-Type': 'application/json' },
-                    body: JSON.stringify({ prompt: texto })
+                    body: JSON.stringify({ systemPrompt: texto })
                 });
-            const input = document.getElementById('systemPrompt');
-            const texto = input.value;
+            
             const chatBox = document.getElementById('perfil');
             chatBox.innerHTML = "<p>Perfil guardado en la memoria.</p>";
         }
@@ -108,7 +110,7 @@ import { Font } from "astro:assets";
     <br><br>
     <div class="perfil-box">
     <div class="perfil" id="perfil"><h1>Tu perfil</h1>
-        <input type="text" name="systemPrompt" id="systemPrompt placeholder="cuéntame de ti...">
+        <input type="text" name="systemPrompt" id="systemPrompt" placeholder="cuéntame de ti...">
         <button onclick="systemPrompt()">Enviar</button>
         </div>
     </div>
