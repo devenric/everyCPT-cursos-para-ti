@@ -2,117 +2,213 @@
 import { Font } from "astro:assets";
 ---
 
-<!DOCTYPE html>
 <html lang="es">
 <head>
-    <meta charset="UTF-8">
-    <title>Every CPT</title>
-    <style is:global>
-        /* Tu CSS intocable */
-        body { font-family: sans-serif; background: #222; color: #fff; padding: 2rem; }
-        #chat-box { background: #333; height: 300px; padding: 1rem; overflow-y: auto; margin-bottom: 1rem; }
-        .mensaje { margin: 10px 0; padding: 10px; border-radius: 8px; max-width: 80%; }
-        .yo { background-color: #4b4c4a; align-self: flex-end; }
-        .ia { background-color: #232121; align-self: flex-start; }
-        .carga { background: transparent; align-self: flex-start; }
-        .mensajeia{white-space: pre-wrap;}
-        .spinner {
-            width: 30px;
-            height: 30px;
-            border: 4px solid #f3f3f3;
-            border-top: 4px solid #3498db;
-            border-radius: 50%;
-            animation: girar 1s linear infinite;
-        }
-
-        @keyframes girar {
-            0% { transform: rotate(0deg); }
-            100% { transform: rotate(360deg); }
-        }
-        .perfil-box{
-            display: flex;
-            align-items: top;
-            justify-content: center;
-        }
-        .perfil{
-            background-color:red;
-            text-align:center;
-            font-size: 1.5rem;
-            height: 500px;
-            width: 400px;
-        }
-    </style>
+	<meta charset="utf-8" />
+	<title>EveryCPT</title>
+	<style>
+		body {
+			font-family: system-ui, sans-serif;
+			max-width: 640px;
+			margin: 3rem auto;
+			padding: 0 1rem;
+			color: #1a1a1a;
+		}
+		input, textarea, button {
+			font: inherit;
+			padding: 0.6rem;
+			border: 1px solid #ccc;
+			border-radius: 6px;
+			width: 100%;
+			box-sizing: border-box;
+			margin-bottom: 0.6rem;
+		}
+		button {
+			background: #1a1a1a;
+			color: white;
+			border: none;
+			cursor: pointer;
+			width: auto;
+			padding: 0.6rem 1.2rem;
+		}
+		#mensaje-error { color: #b00020; min-height: 1.2em; }
+		#chat-historial { border: 1px solid #eee; border-radius: 8px; padding: 1rem; margin-bottom: 1rem; }
+		#chat-historial p { margin: 0.4rem 0; }
+		.oculto { display: none; }
+	</style>
 </head>
 <body>
-        <div class="loguear"></div>
-        <Font cssVariable="--font-hanken-grotesk"/><h1>EveryCPT</h1>
 
-    
-    <div id="chat-box"></div>
-    
-    <input type="text" id="prompt-usuario" placeholder="Pregúntame algo...">
-    <button onclick="enviarMensaje()">Enviar</button>
+	<!-- ============================================================
+	     BLOQUE 1: Login / Registro
+	     Empieza visible. Se oculta en cuanto sabemos que hay sesión activa.
+	     ============================================================ -->
+	<section id="seccion-auth">
+		<h1>Accede a EveryCPT</h1>
+		<input id="input-username" type="text" placeholder="Usuario" />
+		<input id="input-password" type="password" placeholder="Contraseña" />
+		<button id="boton-login">Iniciar sesión</button>
+		<button id="boton-register">Crear cuenta</button>
+		<p id="mensaje-error"></p>
+	</section>
 
-    <script is:inline>
-    let texto = "";
-        async function mostrarLoginRegister(){
+	<!-- ============================================================
+	     BLOQUE 2: App (perfil + chat)
+	     Empieza OCULTA (clase "oculto"). Se muestra solo tras confirmar sesión.
+	     ============================================================ -->
+	<section id="seccion-app" class="oculto">
+		<p>Sesión iniciada como <strong id="texto-username"></strong>
+			— <button id="boton-logout">Cerrar sesión</button></p>
 
-        }
-        async function enviarMensaje() {
-            const input = document.getElementById('prompt-usuario');
-            const texto = input.value;
-            const chatBox = document.getElementById('chat-box');
+		<h2>Cuéntame de ti</h2>
+		<textarea id="input-perfil" rows="3"
+			placeholder="Ej: Me llamo Enric, soy físico y quiero aprender programación"></textarea>
+		<button id="boton-guardar-perfil">Guardar perfil</button>
 
-            chatBox.innerHTML += `<div class="mensaje yo">${texto}</div>`;
-            input.value = '';
+		<h2>Chat</h2>
+		<div id="chat-historial"></div>
+		<textarea id="input-pregunta" rows="2" placeholder="Escribe tu pregunta..."></textarea>
+		<button id="boton-preguntar">Enviar</button>
+	</section>
 
-            const idCarga = 'cargando-' + Date.now();
-            chatBox.innerHTML += `<div id="${idCarga}" class="mensaje carga"><div class="spinner"></div></div>`;
-            chatBox.scrollTop = chatBox.scrollHeight;
+	<script>
+		// La URL de tu backend Flask. En un proyecto real esto normalmente
+		// se lee de una variable de entorno, pero para aprender lo dejamos
+		// escrito a mano.
+		const API = 'http://localhost:5000';
 
-            try {
-                // EL ÚNICO CAMBIO: Ahora le damos la dirección completa de Flask (puerto 5000)
-                const respuestaServidor = await fetch('http://localhost:5000/preguntar', {
-                    method: 'POST',
-                    headers: { 'Content-Type': 'application/json' },
-                    body: JSON.stringify({ prompt: texto })
-                });
+		// Referencias a los elementos del HTML de arriba, para no tener que
+		// buscarlos cada vez. Es el equivalente a document.getElementById
+		// pero guardado en una variable para reutilizar.
+		const seccionAuth = document.getElementById('seccion-auth');
+		const seccionApp = document.getElementById('seccion-app');
+		const mensajeError = document.getElementById('mensaje-error');
+		const textoUsername = document.getElementById('texto-username');
+		const chatHistorial = document.getElementById('chat-historial');
 
-                const datos = await respuestaServidor.json();
+		// ------------------------------------------------------------
+		// FUNCIÓN AUXILIAR: todas las llamadas al backend pasan por aquí,
+		// para no repetir 5 veces las mismas opciones. Fíjate en
+		// 'credentials: include' — SIN esto, la cookie de sesión que crea
+		// el login no viajaría en las peticiones siguientes, y todo lo
+		// demás fallaría con "no has iniciado sesión" aunque el login
+		// haya ido bien.
+		// ------------------------------------------------------------
+		async function llamarBackend(ruta, datos) {
+			const respuesta = await fetch(API + ruta, {
+				method: 'POST',
+				headers: { 'Content-Type': 'application/json' },
+				credentials: 'include',
+				body: JSON.stringify(datos ?? {})
+			});
+			const cuerpo = await respuesta.json();
+			// Si el backend devolvió un código de error (400, 401, 409...),
+			// 'respuesta.ok' es false. Lanzamos un error de JavaScript para
+			// poder capturarlo con try/catch donde se llame a esta función.
+			if (!respuesta.ok) {
+				throw new Error(cuerpo.error || 'Error desconocido');
+			}
+			return cuerpo;
+		}
 
-                const elementoCarga = document.getElementById(idCarga);
-                if (elementoCarga) elementoCarga.remove();
+		// ------------------------------------------------------------
+		// COMPROBAR SESIÓN AL CARGAR LA PÁGINA
+		// Como el navegador no sabe "de memoria" si ya habías iniciado
+		// sesión antes (solo el servidor lo sabe, vía la cookie), la única
+		// forma de saberlo es preguntarle a una ruta protegida y ver si
+		// responde bien o con 401.
+		// ------------------------------------------------------------
+		async function comprobarSesion() {
+			try {
+				const respuesta = await fetch(API + '/dashboard', { credentials: 'include' });
+				if (respuesta.ok) {
+					const datos = await respuesta.json();
+					mostrarApp(datos.username, datos.perfil);
+				}
+				// Si no responde bien (401), simplemente no hacemos nada:
+				// se queda visible el formulario de login, que es el estado inicial.
+			} catch (e) {
+				// Si el backend ni siquiera está encendido, caemos aquí.
+				// No hacemos nada especial, se queda el login visible.
+			}
+		}
 
-                chatBox.innerHTML += `<div class="mensajeia">${datos.respuesta}</div>`;
-                
-            } catch (error) {
-                const elementoCarga = document.getElementById(idCarga);
-                if (elementoCarga) elementoCarga.remove();
-                chatBox.innerHTML += `<div class="mensaje error">Error: Enciende el modelo</div>`;
-            }
-            
-            chatBox.scrollTop = chatBox.scrollHeight;
-        }
-        
-        async function systemPrompt() {
-        const input = document.getElementById('systemPrompt');
-        const texto = input.value;
-            const respuestaServidor = await fetch('http://localhost:5000/systemPrompt', {
-                    method: 'POST',
-                    headers: { 'Content-Type': 'application/json' },
-                    body: JSON.stringify({ systemPrompt: texto })
-                });
-            
-            const chatBox = document.getElementById('perfil');
-            chatBox.innerHTML = "<p>Perfil guardado en la memoria.</p>";
-        }
-    </script>
-    <br><br>
-    <div class="perfil-box">
-    <div class="perfil" id="perfil"><h1>Tu perfil</h1>
-        <input type="text" name="systemPrompt" id="systemPrompt" placeholder="cuéntame de ti...">
-        <button onclick="systemPrompt()">Enviar</button>
-        </div>
-    </div>
+		function mostrarApp(username, perfil) {
+			seccionAuth.classList.add('oculto');
+			seccionApp.classList.remove('oculto');
+			textoUsername.textContent = username;
+			document.getElementById('input-perfil').value = perfil || '';
+		}
+
+		// ------------------------------------------------------------
+		// EVENTOS DE LOS BOTONES
+		// addEventListener es el equivalente a onclick="..." pero escrito
+		// desde JavaScript en vez de en el propio HTML — es la forma
+		// recomendada porque mantiene el HTML y el comportamiento separados.
+		// ------------------------------------------------------------
+
+		document.getElementById('boton-register').addEventListener('click', async () => {
+			mensajeError.textContent = '';
+			const username = document.getElementById('input-username').value;
+			const password = document.getElementById('input-password').value;
+			try {
+				await llamarBackend('/register', { username, password });
+				mensajeError.textContent = 'Cuenta creada. Ahora inicia sesión.';
+			} catch (e) {
+				mensajeError.textContent = e.message;
+			}
+		});
+
+		document.getElementById('boton-login').addEventListener('click', async () => {
+			mensajeError.textContent = '';
+			const username = document.getElementById('input-username').value;
+			const password = document.getElementById('input-password').value;
+			try {
+				await llamarBackend('/login', { username, password });
+				// Tras el login, preguntamos a /dashboard para saber el
+				// perfil guardado y mostrar la app.
+				await comprobarSesion();
+			} catch (e) {
+				mensajeError.textContent = e.message;
+			}
+		});
+
+		document.getElementById('boton-logout').addEventListener('click', async () => {
+			await fetch(API + '/logout', { method: 'POST', credentials: 'include' });
+			seccionApp.classList.add('oculto');
+			seccionAuth.classList.remove('oculto');
+			chatHistorial.innerHTML = '';
+		});
+
+		document.getElementById('boton-guardar-perfil').addEventListener('click', async () => {
+			const perfil = document.getElementById('input-perfil').value;
+			await llamarBackend('/systemPrompt', { systemPrompt: perfil });
+		});
+
+		document.getElementById('boton-preguntar').addEventListener('click', async () => {
+			const inputPregunta = document.getElementById('input-pregunta');
+			const pregunta = inputPregunta.value.trim();
+			if (!pregunta) return;
+
+			// Pintamos la pregunta del usuario en el chat inmediatamente,
+			// sin esperar a la respuesta del modelo, para que se sienta
+			// más ágil (esto es UI optimista: mostramos el cambio antes
+			// de tener la confirmación del servidor).
+			chatHistorial.innerHTML += `<p><strong>Tú:</strong> ${pregunta}</p>`;
+			inputPregunta.value = '';
+
+			try {
+				const datos = await llamarBackend('/preguntar', { prompt: pregunta });
+				chatHistorial.innerHTML += `<p><strong>EveryCPT:</strong> ${datos.respuesta}</p>`;
+			} catch (e) {
+				chatHistorial.innerHTML += `<p style="color:#b00020">Error: ${e.message}</p>`;
+			}
+			// Mantenemos el scroll abajo del todo tras cada mensaje.
+			chatHistorial.scrollTop = chatHistorial.scrollHeight;
+		});
+
+		// Se ejecuta en cuanto carga la página.
+		comprobarSesion();
+	</script>
 </body>
 </html>
